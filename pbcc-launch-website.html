@@ -308,12 +308,14 @@ $('#regForm').addEventListener('submit',e=>{e.preventDefault();const f=e.target,
 const signupsModal=$('#signupsModal');
 const updateRegCount=()=>{try{const list=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');if($('#regCount'))$('#regCount').textContent=list.length;if($('#signupsTitleCount'))$('#signupsTitleCount').textContent=list.length;const tbody=$('#signupsTableBody');if(tbody){if(list.length===0){tbody.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--dim)">No registrations stored yet.</td></tr>'}else{tbody.innerHTML=list.map((item,idx)=>`<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:10px;color:var(--dim);">${idx+1}</td><td style="padding:10px;font-weight:600;">${item.name||'-'}</td><td style="padding:10px;">${item.email||'-'}</td><td style="padding:10px;">${item.phone||'-'}</td><td style="padding:10px;color:var(--dim);font-size:0.8rem;">${item.at?new Date(item.at).toLocaleDateString():'-'}</td></tr>`).join('')}}}catch(_){}};
 updateRegCount();
-if($('#viewSignupsBtn'))$('#viewSignupsBtn').addEventListener('click',e=>{e.preventDefault();updateRegCount();signupsModal.classList.add('open');signupsModal.setAttribute('aria-hidden','false')});
+const openSignupsModal=()=>{updateRegCount();if(signupsModal){signupsModal.classList.add('open');signupsModal.setAttribute('aria-hidden','false')}};
+if($('#viewSignupsBtn'))$('#viewSignupsBtn').addEventListener('click',e=>{e.preventDefault();openSignupsModal()});
 if($('#signupsClose'))$('#signupsClose').addEventListener('click',()=>{signupsModal.classList.remove('open');signupsModal.setAttribute('aria-hidden','true')});
 if(signupsModal)signupsModal.addEventListener('click',e=>{if(e.target===signupsModal){signupsModal.classList.remove('open');signupsModal.setAttribute('aria-hidden','true')}});
 if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{try{const list=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');if(!list.length){alert('No registrations to export.');return}const headers=['Name','Email','Phone','Registered At'];const rows=list.map(i=>[i.name,i.email,i.phone,i.at].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(','));const csvContent='data:text/csv;charset=utf-8,'+[headers.join(','),...rows].join('\n');const link=document.createElement('a');link.setAttribute('href',encodeURI(csvContent));link.setAttribute('download',`pbcc_registrations_${new Date().toISOString().slice(0,10)}.csv`);document.body.appendChild(link);link.click();document.body.removeChild(link)}catch(_){alert('Failed to export CSV.')}});
 
-
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&(e.key==='a'||e.key==='A')){e.preventDefault();openSignupsModal()}});
+if(location.search.includes('admin')||location.hash==='#admin')setTimeout(openSignupsModal,300);
 
 })();
 </script>
