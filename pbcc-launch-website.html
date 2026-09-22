@@ -214,7 +214,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 </div></section>
 </main>
 
-<footer><div class="wrap f"><div><b>Personality Built &amp; Communication Club</b><br>Gouthami Institute of Technology and Management for Women (Autonomous)</div><div><a href="#team">Meet the team</a> &nbsp;|&nbsp; <a href="https://meghanareddy-png.github.io/PBCC-CLUB/" style="color:var(--gold);font-weight:700">Launch Poster 📜</a> &nbsp;|&nbsp; <a href="#" id="viewSignupsBtn">Registrations (<span id="regCount">0</span>)</a> &nbsp;|&nbsp; Speak. Connect. Grow.</div></div></footer>
+<footer><div class="wrap f"><div><b>Personality Built &amp; Communication Club</b><br>Gouthami Institute of Technology and Management for Women (Autonomous)</div><div><a href="#team">Meet the team</a> &nbsp;|&nbsp; <a href="https://meghanareddy-png.github.io/PBCC-CLUB/" style="color:var(--gold);font-weight:700">Launch Poster 📜</a> &nbsp;|&nbsp; Speak. Connect. Grow.</div></div></footer>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" aria-hidden="true">
   <div class="m-card glass">
@@ -257,7 +257,6 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <p style="color:var(--dim);margin-bottom:14px;font-size:0.9rem">All member information submitted when joining the club is stored below.</p>
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" id="exportCsvBtn" type="button">Export to CSV 📥</button>
-      <button class="btn btn-ghost btn-sm" id="clearSignupsBtn" type="button" style="color:#ff8fb8;border-color:rgba(230,32,140,0.4)">Clear All</button>
     </div>
     <div style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;background:rgba(10,7,20,0.5);">
       <table style="width:100%;border-collapse:collapse;text-align:left;font-size:0.9rem;">
@@ -313,7 +312,7 @@ if($('#viewSignupsBtn'))$('#viewSignupsBtn').addEventListener('click',e=>{e.prev
 if($('#signupsClose'))$('#signupsClose').addEventListener('click',()=>{signupsModal.classList.remove('open');signupsModal.setAttribute('aria-hidden','true')});
 if(signupsModal)signupsModal.addEventListener('click',e=>{if(e.target===signupsModal){signupsModal.classList.remove('open');signupsModal.setAttribute('aria-hidden','true')}});
 if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{try{const list=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');if(!list.length){alert('No registrations to export.');return}const headers=['Name','Email','Phone','Registered At'];const rows=list.map(i=>[i.name,i.email,i.phone,i.at].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(','));const csvContent='data:text/csv;charset=utf-8,'+[headers.join(','),...rows].join('\n');const link=document.createElement('a');link.setAttribute('href',encodeURI(csvContent));link.setAttribute('download',`pbcc_registrations_${new Date().toISOString().slice(0,10)}.csv`);document.body.appendChild(link);link.click();document.body.removeChild(link)}catch(_){alert('Failed to export CSV.')}});
-if($('#clearSignupsBtn'))$('#clearSignupsBtn').addEventListener('click',()=>{if(confirm('Are you sure you want to clear all stored registrations?')){localStorage.removeItem('pbcc_signups');updateRegCount()}});
+
 
 
 })();
