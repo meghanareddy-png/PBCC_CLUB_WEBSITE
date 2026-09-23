@@ -117,9 +117,117 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 #toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);z-index:190;transform:translate(-50%,30px);opacity:0;padding:14px 22px;border-radius:16px;background:#140d30;border:1px solid var(--cyan);font-weight:600;transition:.4s;pointer-events:none;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}.js .rv{opacity:1;transform:none}}
+
+/* ---- CINEMATIC VISUAL EFFECTS ---- */
+#cinematic-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.65;
+}
+
+#mouse-glow {
+  position: fixed;
+  width: 650px;
+  height: 650px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,242,254,0.14) 0%, rgba(121,40,202,0.18) 35%, rgba(255,0,128,0.08) 60%, transparent 75%);
+  pointer-events: none;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  transition: transform 0.15s cubic-bezier(0.1, 0.5, 0.1, 1);
+  mix-blend-mode: screen;
+}
+
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(circle at center, transparent 55%, rgba(6, 7, 20, 0.75) 100%);
+}
+
+.gt {
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 20%, #7928ca 45%, #ff0080 70%, #ffbd59 100%);
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: textShimmer 7s linear infinite;
+}
+@keyframes textShimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 250% center; }
+}
+
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 35px -10px rgba(0, 242, 254, 0.6), 0 0 20px rgba(121, 40, 202, 0.4);
+}
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(60deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  transform: rotate(30deg) translateY(-100%);
+  animation: shine 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes shine {
+  0%, 75% { transform: rotate(30deg) translateY(-100%); }
+  100% { transform: rotate(30deg) translateY(100%); }
+}
+
+.chip {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+}
+
+.viz .core {
+  animation: corePulse 5s ease-in-out infinite alternate !important;
+}
+@keyframes corePulse {
+  0% {
+    box-shadow: 0 0 45px rgba(255,189,89,0.5), 0 0 90px rgba(124,58,237,0.3), inset 0 0 30px rgba(124,58,237,0.5);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 85px rgba(0,242,254,0.7), 0 0 140px rgba(230,32,140,0.5), inset 0 0 50px rgba(255,189,89,0.7);
+    transform: scale(1.03);
+  }
+}
+
+.card, .t, .cta-box {
+  transition: transform 0.25s cubic-bezier(0.1, 0.8, 0.2, 1), box-shadow 0.35s ease, border-color 0.35s ease !important;
+  will-change: transform;
+}
+
+.card:hover, .t:hover {
+  border-color: rgba(0, 242, 254, 0.6) !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 242, 254, 0.35), 0 0 35px rgba(121, 40, 202, 0.3) !important;
+}
+
+.bub {
+  box-shadow: 0 10px 30px rgba(0, 242, 254, 0.25);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+}
+
 </style>
 </head>
 <body>
+<canvas id="cinematic-canvas"></canvas>
+<div id="mouse-glow"></div>
+<div class="vignette"></div>
+
 <header class="nav"><div class="bar glass">
   <a class="logo" href="#top" aria-label="Top" style="padding:2px;background:none;"><img src="pbcc-logo.jpg" alt="PBCC Club Logo" style="height:44px;width:44px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);box-shadow:0 0 12px rgba(245,184,61,0.4);"></a>
   <nav class="links" aria-label="Main"><a href="#about">About & Mission</a><a href="#tracks">Event Tracks</a><a href="#benefits">Benefits</a><a href="#team">Team</a><a href="#faqs">FAQs</a><a href="#announcements">Announcements 📢</a></nav>
@@ -501,6 +609,108 @@ if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{
 
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&(e.key==='a'||e.key==='A')){e.preventDefault();openSignupsModal()}});
 if(location.search.includes('admin')||location.hash==='#admin')setTimeout(openSignupsModal,300);
+
+
+// ---- CINEMATIC EFFECTS SCRIPT ----
+// 1. Dynamic Particle Field Canvas
+{
+  const canvas = document.getElementById('cinematic-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+
+    const particles = [];
+    const colors = ['rgba(0,242,254,', 'rgba(121,40,202,', 'rgba(230,32,140,', 'rgba(255,189,89,'];
+    const count = Math.min(65, Math.floor(width / 20));
+
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        r: Math.random() * 2.2 + 0.6,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: Math.random() * 0.7 + 0.2,
+        vx: (Math.random() - 0.5) * 0.45,
+        vy: -Math.random() * 0.45 - 0.15,
+        pulse: Math.random() * 0.02 + 0.005
+      });
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, width, height);
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha += Math.sin(Date.now() * p.pulse) * 0.008;
+
+        if (p.y < -10) { p.y = height + 10; p.x = Math.random() * width; }
+        if (p.x < -10) p.x = width + 10;
+        if (p.x > width + 10) p.x = -10;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + Math.max(0.1, Math.min(0.95, p.alpha)) + ')';
+        ctx.shadowBlur = p.r * 6;
+        ctx.shadowColor = p.color + '0.8)';
+        ctx.fill();
+      });
+      requestAnimationFrame(animate);
+    }
+    animate();
+  }
+}
+
+// 2. Mouse Spotlight Tracker
+{
+  const glow = document.getElementById('mouse-glow');
+  if (glow) {
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let currentX = targetX;
+    let currentY = targetY;
+
+    window.addEventListener('mousemove', e => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+    });
+
+    function updateGlow() {
+      currentX += (targetX - currentX) * 0.12;
+      currentY += (targetY - currentY) * 0.12;
+      glow.style.transform = `translate(${currentX}px, ${currentY}px) translate(-50%, -50%)`;
+      requestAnimationFrame(updateGlow);
+    }
+    updateGlow();
+  }
+}
+
+// 3. 3D Tilt Effect on Cards & Interactive Glow
+{
+  const tiltElements = document.querySelectorAll('.card, .t, .cta-box');
+  tiltElements.forEach(el => {
+    el.addEventListener('mousemove', e => {
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const rotateX = ((y - centerY) / centerY) * -6;
+      const rotateY = ((x - centerX) / centerX) * 6;
+
+      el.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-6px)`;
+    });
+
+    el.addEventListener('mouseleave', () => {
+      el.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+    });
+  });
+}
 
 })();
 </script>
