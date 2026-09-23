@@ -253,7 +253,10 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 <div class="modal" id="signupsModal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="m-card glass" style="width:min(680px,100%);">
     <button class="x" id="signupsClose" type="button" aria-label="Close">&times;</button>
-    <h3>Stored Registrations (<span id="signupsTitleCount">0</span>)</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
+      <h3 style="margin:0;">Stored Registrations (<span id="signupsTitleCount">0</span>)</h3>
+      <span id="dbStatusBadge" style="font-size:0.78rem;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.08);color:var(--dim);font-weight:600;">Local Storage Mode 🟠</span>
+    </div>
     <p style="color:var(--dim);margin-bottom:14px;font-size:0.9rem">All member information submitted when joining the club is stored below.</p>
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" id="exportCsvBtn" type="button">Export to CSV 📥</button>
@@ -276,8 +279,35 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>
+
+<!-- Firebase SDK Compatibility Libraries -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <script>
 (()=>{"use strict";
+// Firebase Configuration - Replace placeholder values with your Firebase Console credentials
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+let db = null;
+try {
+  if (typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    db = firebase.firestore();
+  }
+} catch (err) {
+  console.warn("Firebase initialization skipped or failed:", err);
+}
+
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 document.documentElement.classList.add('js');
 {const r=$('#ring'),n=60;if(r)for(let i=0;i<n;i++){const b=document.createElement('i'),h=20+Math.random()*50;b.style.transform=`rotate(${i*360/n}deg) translateY(var(--R))`;b.style.setProperty('--a',h+'px');b.style.setProperty('--b',(h+20+Math.random()*40)+'px');b.style.animationDelay=(-Math.random()*1.6)+'s';r.appendChild(b)}}
@@ -296,23 +326,146 @@ $$('[data-join]').forEach(b=>b.addEventListener('click',openM));
 $('#mClose').addEventListener('click',closeM);$('#okClose').addEventListener('click',closeM);
 modal.addEventListener('click',e=>{if(e.target===modal)closeM()});
 addEventListener('keydown',e=>{if(e.key==='Escape')closeM()});
-$('#regForm').addEventListener('submit',e=>{e.preventDefault();const f=e.target,v=n=>f.elements[n].value.trim(),E={};
- if(v('name').length<2)E.name='Enter your full name.';
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v('email')))E.email='Enter a valid email address.';
- if(v('phone').replace(/\D/g,'').length<10)E.phone='Enter a 10-digit phone number.';
- $$('.err',f).forEach(x=>x.textContent=E[x.dataset.e]||'');if(Object.keys(E).length){f.elements[Object.keys(E)[0]].focus();return}
- try{const a=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');a.push({name:v('name'),email:v('email'),phone:v('phone'),at:new Date().toISOString()});localStorage.setItem('pbcc_signups',JSON.stringify(a))}catch(_){}
- $('#okText').textContent=`Welcome, ${v('name').split(' ')[0]}. We will send the launch details to ${v('email')}. See you on ${DATE}!`;
- $('#formView').hidden=true;$('#okView').hidden=false;f.reset();if(typeof updateRegCount==='function')updateRegCount()});
+
+$('#regForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target,v=n=>f.elements[n]?f.elements[n].value.trim():'',E={};
+  if(v('name').length<2)E.name='Enter your full name.';
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v('email')))E.email='Enter a valid email address.';
+  if(v('phone').replace(/\D/g,'').length<10)E.phone='Enter a 10-digit phone number.';
+  $$('.err',f).forEach(x=>x.textContent=E[x.dataset.e]||'');
+  if(Object.keys(E).length){f.elements[Object.keys(E)[0]].focus();return}
+
+  const signupItem = {
+    name: v('name'),
+    email: v('email'),
+    phone: v('phone'),
+    branch: v('branch') || '',
+    at: new Date().toISOString()
+  };
+
+  try{
+    const a=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');
+    a.push(signupItem);
+    localStorage.setItem('pbcc_signups',JSON.stringify(a));
+  }catch(_){}
+
+  if (db) {
+    db.collection('registrations').add({
+      ...signupItem,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      console.log('Successfully saved registration to Firebase Firestore.');
+      updateRegCount();
+    }).catch(err => console.error('Firebase Firestore save error:', err));
+  }
+
+  $('#okText').textContent=`Welcome, ${v('name').split(' ')[0]}. We will send the launch details to ${v('email')}. See you on ${DATE}!`;
+  $('#formView').hidden=true;
+  $('#okView').hidden=false;
+  f.reset();
+  if(typeof updateRegCount==='function')updateRegCount();
+});
 
 const signupsModal=$('#signupsModal');
-const updateRegCount=()=>{try{const list=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');if($('#regCount'))$('#regCount').textContent=list.length;if($('#signupsTitleCount'))$('#signupsTitleCount').textContent=list.length;const tbody=$('#signupsTableBody');if(tbody){if(list.length===0){tbody.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--dim)">No registrations stored yet.</td></tr>'}else{tbody.innerHTML=list.map((item,idx)=>`<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:10px;color:var(--dim);">${idx+1}</td><td style="padding:10px;font-weight:600;">${item.name||'-'}</td><td style="padding:10px;">${item.email||'-'}</td><td style="padding:10px;">${item.phone||'-'}</td><td style="padding:10px;color:var(--dim);font-size:0.8rem;">${item.at?new Date(item.at).toLocaleDateString():'-'}</td></tr>`).join('')}}}catch(_){}};
+
+function renderSignupsTable(list) {
+  const tbody=$('#signupsTableBody');
+  if(!tbody) return;
+  if(list.length===0){
+    tbody.innerHTML='<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--dim)">No registrations stored yet.</td></tr>';
+  }else{
+    tbody.innerHTML=list.map((item,idx)=>`<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:10px;color:var(--dim);">${idx+1}</td><td style="padding:10px;font-weight:600;">${item.name||'-'}</td><td style="padding:10px;">${item.email||'-'}</td><td style="padding:10px;">${item.phone||'-'}</td><td style="padding:10px;color:var(--dim);font-size:0.8rem;">${item.at&&item.at!=='-'?new Date(item.at).toLocaleDateString():'-'}</td></tr>`).join('');
+  }
+}
+
+const updateRegCount=()=>{
+  try{
+    const list=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');
+    if($('#regCount'))$('#regCount').textContent=list.length;
+    if($('#signupsTitleCount'))$('#signupsTitleCount').textContent=list.length;
+    renderSignupsTable(list);
+
+    const badge = $('#dbStatusBadge');
+    if (db) {
+      if(badge){
+        badge.textContent = 'Firebase Cloud Live 🟢';
+        badge.style.background = 'rgba(37,211,102,0.15)';
+        badge.style.color = '#25D366';
+      }
+      db.collection('registrations').orderBy('createdAt', 'desc').get().then(snapshot => {
+        if (!snapshot.empty) {
+          const cloudList = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            cloudList.push({
+              name: data.name || '-',
+              email: data.email || '-',
+              phone: data.phone || '-',
+              branch: data.branch || '-',
+              at: data.at || (data.createdAt ? data.createdAt.toDate().toISOString() : '-')
+            });
+          });
+          if($('#signupsTitleCount'))$('#signupsTitleCount').textContent=cloudList.length;
+          renderSignupsTable(cloudList);
+        }
+      }).catch(err => console.warn('Firestore fetch error:', err));
+    } else {
+      if(badge){
+        badge.textContent = 'Local Storage Mode 🟠';
+        badge.style.background = 'rgba(255,189,89,0.15)';
+        badge.style.color = 'var(--gold)';
+      }
+    }
+  }catch(_){}
+};
+
 updateRegCount();
 const openSignupsModal=()=>{updateRegCount();if(signupsModal){signupsModal.classList.add('open');signupsModal.setAttribute('aria-hidden','false')}};
 if($('#viewSignupsBtn'))$('#viewSignupsBtn').addEventListener('click',e=>{e.preventDefault();openSignupsModal()});
 if($('#signupsClose'))$('#signupsClose').addEventListener('click',()=>{signupsModal.classList.remove('open');signupsModal.setAttribute('aria-hidden','true')});
 if(signupsModal)signupsModal.addEventListener('click',e=>{if(e.target===signupsModal){signupsModal.classList.remove('open');signupsModal.setAttribute('aria-hidden','true')}});
-if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{try{const list=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');if(!list.length){alert('No registrations to export.');return}const headers=['Name','Email','Phone','Registered At'];const rows=list.map(i=>[i.name,i.email,i.phone,i.at].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(','));const csvContent='data:text/csv;charset=utf-8,'+[headers.join(','),...rows].join('\n');const link=document.createElement('a');link.setAttribute('href',encodeURI(csvContent));link.setAttribute('download',`pbcc_registrations_${new Date().toISOString().slice(0,10)}.csv`);document.body.appendChild(link);link.click();document.body.removeChild(link)}catch(_){alert('Failed to export CSV.')}});
+
+if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{
+  try{
+    const list=JSON.parse(localStorage.getItem('pbcc_signups')||'[]');
+    const exportFile = (dataList) => {
+      if(!dataList.length){alert('No registrations to export.');return}
+      const headers=['Name','Email','Phone','Branch','Registered At'];
+      const rows=dataList.map(i=>[i.name,i.email,i.phone,i.branch||'',i.at].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(','));
+      const csvContent='data:text/csv;charset=utf-8,'+[headers.join(','),...rows].join('\n');
+      const link=document.createElement('a');
+      link.setAttribute('href',encodeURI(csvContent));
+      link.setAttribute('download',`pbcc_registrations_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    if (db) {
+      db.collection('registrations').orderBy('createdAt', 'desc').get().then(snapshot => {
+        if (!snapshot.empty) {
+          const cloudList = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            cloudList.push({
+              name: data.name || '',
+              email: data.email || '',
+              phone: data.phone || '',
+              branch: data.branch || '',
+              at: data.at || (data.createdAt ? data.createdAt.toDate().toISOString() : '')
+            });
+          });
+          exportFile(cloudList);
+        } else {
+          exportFile(list);
+        }
+      }).catch(() => exportFile(list));
+    } else {
+      exportFile(list);
+    }
+  }catch(_){alert('Failed to export CSV.')}
+});
 
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&(e.key==='a'||e.key==='A')){e.preventDefault();openSignupsModal()}});
 if(location.search.includes('admin')||location.hash==='#admin')setTimeout(openSignupsModal,300);
