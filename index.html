@@ -690,16 +690,39 @@ if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{
 
 
 
-// Secret Admin Access via Shift + Ctrl + A or #admin
+
+// Secret Admin Access Triggers:
+// 1. Keyboard Shortcut: Shift + Ctrl + A
 addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'a' || e.key === 'A')) {
     e.preventDefault();
     openSignupsModal();
   }
 });
+
+// 2. URL Hash Trigger: #admin or ?admin
 if (location.search.includes('admin') || location.hash === '#admin') {
   setTimeout(openSignupsModal, 300);
 }
+
+// 3. Secret Mobile Gesture: Double-click/double-tap on the top PBCC Logo
+const logoEl = document.querySelector('.logo');
+if (logoEl) {
+  let tapCount = 0, tapTimer = null;
+  logoEl.addEventListener('click', e => {
+    tapCount++;
+    if (tapCount === 2) {
+      e.preventDefault();
+      openSignupsModal();
+      tapCount = 0;
+      clearTimeout(tapTimer);
+    } else {
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { tapCount = 0; }, 400);
+    }
+  });
+}
+
 
 // ---- CINEMATIC EFFECTS SCRIPT ----
 // 1. Dynamic Particle Field Canvas
