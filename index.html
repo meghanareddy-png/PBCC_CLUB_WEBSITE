@@ -425,12 +425,27 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Firebase SDK Compatibility Libraries -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
 (()=>{"use strict";
+// Supabase Configuration - Paste your Supabase Project URL and Anon Public Key below
+const SUPABASE_URL = "YOUR_SUPABASE_URL"; // e.g. "https://xxxx.supabase.co"
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+let supabaseClient = null;
+try {
+  if (typeof supabase !== 'undefined' && SUPABASE_URL !== "YOUR_SUPABASE_URL") {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch (err) {
+  console.warn("Supabase initialization skipped or failed:", err);
+}
+
+
 // Firebase Configuration - Replace placeholder values with your Firebase Console credentials
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
@@ -495,7 +510,20 @@ $('#regForm').addEventListener('submit',e=>{
     localStorage.setItem('pbcc_signups',JSON.stringify(a));
   }catch(_){}
 
-  if (db) {
+  if (supabaseClient) {
+    supabaseClient.from('registrations').insert([{
+      name: signupItem.name,
+      email: signupItem.email,
+      phone: signupItem.phone,
+      branch: signupItem.branch
+    }]).then(({ error }) => {
+      if (error) console.error("Supabase save error:", error);
+      else {
+        console.log("Saved registration to Supabase Cloud.");
+        updateRegCount();
+      }
+    });
+  } else if (db) {
     db.collection('registrations').add({
       ...signupItem,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -541,7 +569,26 @@ const updateRegCount=()=>{
     renderSignupsTable(list);
 
     const badge = $('#dbStatusBadge');
-    if (db) {
+    if (supabaseClient) {
+      if(badge){
+        badge.textContent = 'Supabase Cloud Live 🟢';
+        badge.style.background = 'rgba(37,211,102,0.15)';
+        badge.style.color = '#25D366';
+      }
+      supabaseClient.from('registrations').select('*').order('created_at', { ascending: false }).then(({ data, error }) => {
+        if (!error && data && data.length) {
+          const cloudList = data.map(d => ({
+            name: d.name || '-',
+            email: d.email || '-',
+            phone: d.phone || '-',
+            branch: d.branch || '-',
+            at: d.created_at || d.at || '-'
+          }));
+          if($('#signupsTitleCount'))$('#signupsTitleCount').textContent=cloudList.length;
+          renderSignupsTable(cloudList);
+        }
+      }).catch(err => console.warn('Supabase fetch error:', err));
+    } else if (db) {
       if(badge){
         badge.textContent = 'Firebase Cloud Live 🟢';
         badge.style.background = 'rgba(37,211,102,0.15)';
@@ -597,7 +644,22 @@ if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{
       document.body.removeChild(link);
     };
 
-    if (db) {
+    if (supabaseClient) {
+      supabaseClient.from('registrations').select('*').order('created_at', { ascending: false }).then(({ data, error }) => {
+        if (!error && data && data.length) {
+          const cloudList = data.map(d => ({
+            name: d.name || '',
+            email: d.email || '',
+            phone: d.phone || '',
+            branch: d.branch || '',
+            at: d.created_at || d.at || ''
+          }));
+          exportFile(cloudList);
+        } else {
+          exportFile(list);
+        }
+      }).catch(() => exportFile(list));
+    } else if (db) {
       db.collection('registrations').orderBy('createdAt', 'desc').get().then(snapshot => {
         if (!snapshot.empty) {
           const cloudList = [];
