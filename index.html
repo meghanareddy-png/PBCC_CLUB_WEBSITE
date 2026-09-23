@@ -595,7 +595,7 @@ const updateRegCount=()=>{
         badge.style.background = 'rgba(37,211,102,0.15)';
         badge.style.color = '#25D366';
       }
-      db.collection('registrations').orderBy('createdAt', 'desc').get().then(snapshot => {
+      db.collection('registrations').get().then(snapshot => {
         if (!snapshot.empty) {
           const cloudList = [];
           snapshot.forEach(doc => {
@@ -605,13 +605,21 @@ const updateRegCount=()=>{
               email: data.email || '-',
               phone: data.phone || '-',
               branch: data.branch || '-',
-              at: data.at || (data.createdAt ? data.createdAt.toDate().toISOString() : '-')
+              at: data.at || (data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString())
             });
           });
+          cloudList.sort((a,b) => new Date(b.at) - new Date(a.at));
           if($('#signupsTitleCount'))$('#signupsTitleCount').textContent=cloudList.length;
           renderSignupsTable(cloudList);
         }
-      }).catch(err => console.warn('Firestore fetch error:', err));
+      }).catch(err => {
+        console.warn('Firestore fetch error:', err);
+        if(badge) {
+          badge.textContent = 'Firebase Rules Check Required ⚠️';
+          badge.style.background = 'rgba(255,189,89,0.2)';
+          badge.style.color = 'var(--gold)';
+        }
+      });
     } else {
       if(badge){
         badge.textContent = 'Local Storage Mode 🟠';
@@ -661,7 +669,7 @@ if($('#exportCsvBtn'))$('#exportCsvBtn').addEventListener('click',()=>{
         }
       }).catch(() => exportFile(list));
     } else if (db) {
-      db.collection('registrations').orderBy('createdAt', 'desc').get().then(snapshot => {
+      db.collection('registrations').get().then(snapshot => {
         if (!snapshot.empty) {
           const cloudList = [];
           snapshot.forEach(doc => {
